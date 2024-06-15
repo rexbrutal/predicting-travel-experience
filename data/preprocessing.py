@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def load_participant_data(participant_id):
-    """Returns a dataframe holding the recorded data for the given participant."""
+    """Returns dataframes holding the recorded data for the given participant."""
 
     # TODO: we have to decide on a general data format that allows for automated processing
     labels_path = '/home/seb/predicting-travel-experience/raw_data/01/Proband01_label.txt'
@@ -18,11 +18,20 @@ def load_participant_data(participant_id):
     time_delta = timedelta(hours=time_offset.hour, minutes=time_offset.minute, seconds=time_offset.second)
     df_labels['timestamp'] = df_labels['timestamp'].apply(lambda x: datetime.strptime(x, '%M:%S') + time_delta)
     df_labels.rename(columns={'timestamp': 'time'}, inplace=True)
+    df_labels['participant_id'] = participant_id
+    df_labels.set_index('time', inplace=True)
 
     df_leg = pd.read_csv(leg_device_path)
+    df_leg = df_leg.loc[:, ~df_leg.columns.str.contains('^Unnamed')]
     df_leg['time'] = df_leg['time'].apply(lambda x: datetime.strptime(x, '%H:%M:%S:%f'))
+    df_leg['participant_id'] = participant_id
+    df_leg.set_index('time', inplace=True)
 
     df_bike = pd.read_csv(bike_device_path)
+    df_bike = df_bike.loc[:, ~df_bike.columns.str.contains('^Unnamed')]
     df_bike['time'] = df_bike['time'].apply(lambda x: datetime.strptime(x, '%H:%M:%S:%f'))
+    df_bike['participant_id'] = participant_id
+    df_bike.set_index('time', inplace=True)
 
+    print(f"Loaded data of participant {participant_id}")
     return df_labels, df_leg, df_bike

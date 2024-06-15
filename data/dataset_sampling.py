@@ -1,6 +1,30 @@
 import random
+import pandas as pd
 from datetime import timedelta
 from datasets import Dataset
+from matplotlib import pyplot
+
+
+def resample_dataset_frame(df_labels, df_leg, df_bike):
+    """Returns a combined dataframe with data randomly sampled and interpolated from the given dataframes."""
+
+    # resample all data to a frequency of 10 points per second (one data point each 100 milliseconds)
+    df_labels = df_labels.resample('100L').interpolate(method='linear')
+    df_leg = df_leg.resample('100L').mean(numeric_only=False)
+    # TODO: resampling drops the Gain colum? Probably because of strange -inf. That should be handled in preprocessing
+    df_bike = df_bike.resample('100L').mean(numeric_only=False)
+
+    # combine individual dataframes
+    df = pd.concat([df_labels, df_leg, df_bike], axis=1, keys=['df_labels', 'df_leg', 'df_bike'])
+
+    # slice of beginning and end, where some of the columns only contain NaN values
+    valid_start_indices = df.apply(pd.Series.first_valid_index)
+    valid_end_indices = df.apply(pd.Series.last_valid_index)
+    start_time = max(valid_start_indices)
+    end_time = min(valid_end_indices)
+    df = df.loc[start_time:end_time]
+
+    return df
 
 
 def get_future_and_past_neighbours(df):
@@ -12,7 +36,7 @@ def get_future_and_past_neighbours(df):
             return future_neighbour, past_neighbour
 
 
-def sample_dataset_frame(df_labels, df_leg, df_bike, n_examples):
+def sample_random_dataset_frame(df_labels, df_leg, df_bike, n_examples):
     """Returns a combined dataframe with data randomly sampled and interpolated from the given dataframes."""
     # exclude 35 seconds from outer bounds in each direction
     # to allow for sampling of up to 30 second windows i either direction around random timestamps
@@ -65,7 +89,4 @@ def sample_dataset_frame(df_labels, df_leg, df_bike, n_examples):
             data_dictionary[t][f"bike_{column}"] = future_factor * future_neighbour[column] \
                                                   + past_factor * past_neighbour[column]
 
-    for key, value in data_dictionary.items():
-        print(key, value)
-    exit()
-    # TODO: convert dictionary to dataframe
+
