@@ -1,39 +1,45 @@
 from ..data.dataset_sampling import resample_dataset_frame
 from ..data.preprocessing import load_participant_data
 from ..data.ml_datasets import SlidingWindowDataset
-from .models import LSTMModel
+from .models import LSTMModel, FeedForwardModel
 
 import torch
 import time
 from torch.utils.data import DataLoader, random_split
 
 
-def train_lstm(
+def train_model(
         window_size=100,
         train_ratio=0.9,
         learning_rate=0.1,
         num_epochs=10,
 ):
-    print("Train an lstm model")
+    print("Train a new model")
 
     # load data
     df_labels, df_leg, df_bike = load_participant_data(participant_id='01')
     df = resample_dataset_frame(df_labels, df_leg, df_bike)
-    dataset = SlidingWindowDataset(participants_data=[df], window_size=window_size, window_label='end')
+    dataset = SlidingWindowDataset(participants_data=[df], window_size=window_size, window_label='end', slide_step_size=10)
 
     # create train and eval splits
-    # TODO: for now this not that useful, as they are essentially the same and windows even overlap
+    # TODO: for now this is not that useful, as both datasets are essentially the same and windows even overlap
     train_size = int(train_ratio * len(dataset))
     eval_size = len(dataset) - train_size
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
     # create model
-    input_size = train_dataset.__getitem__(0)['data'].size()[1]
-    model = LSTMModel(
+    sequence_length, input_size = train_dataset.__getitem__(0)['data'].size()
+
+    #model = LSTMModel(
+    #    input_size=input_size,
+    #    hidden_size=32,
+    #    num_layers=2,
+    #    sequence_length=window_size,
+    #)
+
+    model = FeedForwardModel(
+        sequence_length=sequence_length,
         input_size=input_size,
-        hidden_size=32,
-        num_layers=2,
-        sequence_length=window_size,
     )
 
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -80,8 +86,8 @@ def train_lstm(
                         break
                     output = model.forward(inputs=batch['data'], labels=batch['label'])
                     # print outputs and labels for inspection
-                    print(output['prediction'])
-                    print(batch['label'])
+                    print('predictions:', output['prediction'])
+                    print('labels:', batch['label'])
 
             eval_loss /= len(eval_dataset)
 

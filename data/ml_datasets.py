@@ -1,10 +1,11 @@
 import torch
 import random
 from torch.utils.data import Dataset
+from .normalization import normalise_participant_data
 
 
 class SlidingWindowDataset(Dataset):
-    def __init__(self, participants_data, window_size, window_label):
+    def __init__(self, participants_data, window_size, window_label, slide_step_size):
         """Takes a list if individual participants dataframes and build a sliding window dataset from them."""
         self.window_size = window_size
 
@@ -14,6 +15,9 @@ class SlidingWindowDataset(Dataset):
         for df in participants_data:
             # TODO: decide on nan strategy
             df = df.fillna(0)
+
+            # input normalisation
+            df = normalise_participant_data(df)
 
             df = df.loc[:, ~df.columns.get_level_values(1).str.contains('^participant_id')]
             df = df.reset_index(drop=True)
@@ -32,7 +36,7 @@ class SlidingWindowDataset(Dataset):
             def extract_item(idx):
                 return raw_data[idx:idx + self.window_size], labels[idx]
 
-            for i in range(raw_data.size()[0] - self.window_size):
+            for i in range(0, raw_data.size()[0] - self.window_size, slide_step_size):
                 data, label = extract_item(i)
                 extracted_data.append(data)
                 extracted_labels.append(label.item())

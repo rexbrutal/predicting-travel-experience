@@ -1,6 +1,40 @@
 import torch
 
 
+class FeedForwardModel(torch.nn.Module):
+    def __init__(
+            self,
+            sequence_length: int,
+            input_size: int,
+    ):
+        super(FeedForwardModel, self).__init__()
+        self.device = None
+        self.fc1 = torch.nn.Linear(sequence_length * input_size, 50)
+        self.fc2 = torch.nn.Linear(50, 1)
+        self.relu = torch.nn.ReLU()
+        self.loss_fn = torch.nn.MSELoss()
+
+    def to(self, device):
+        self.device = device
+        super().to(device)
+
+    def forward(
+            self,
+            inputs,
+            labels=None,
+    ):
+        # skip the batch dimension 0 for flattening
+        out1 = self.relu(self.fc1(torch.flatten(inputs, start_dim=1)))
+        #print('out1:', out1)
+        prediction = self.fc2(out1)
+        #print('DEBUG prediction:', prediction)
+        output = {'prediction': prediction}
+        if labels is not None:
+            loss = self.loss_fn(prediction.squeeze(), labels)
+            output['loss'] = loss
+        return output
+
+
 class LSTMModel(torch.nn.Module):
     def __init__(
             self,
@@ -11,7 +45,6 @@ class LSTMModel(torch.nn.Module):
     ):
         super(LSTMModel, self).__init__()
         self.device = None
-
         self.lstm = torch.nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
@@ -20,6 +53,7 @@ class LSTMModel(torch.nn.Module):
         )
         # for now the prediction layer just sees all the hidden states at all time steps equally/simultaneously
         self.prediction_layer = torch.nn.Linear(hidden_size * sequence_length, 1)
+        self.loss_fn = torch.nn.MSELoss()
 
     def to(self, device):
         self.device = device
@@ -36,12 +70,7 @@ class LSTMModel(torch.nn.Module):
 
         # for now, I just use absolute distance as loss. Maybe we should look for something better?
         if labels is not None:
-            distances = torch.abs(prediction.squeeze() - labels)
-            # TODO: probably the result of nan in the df. Should we exclude non inputs or replace them?
-            #nan_mask = torch.isnan(distances)
-            #loss = distances[~nan_mask].sum()
-
-            loss = distances.sum()
+            loss = self.loss_fn(prediction.squeeze(), labels)
             output['loss'] = loss
         return output
 

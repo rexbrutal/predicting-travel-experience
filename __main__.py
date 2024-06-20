@@ -1,5 +1,5 @@
 import argparse
-from .training.train_lstm import train_lstm
+from .training.training_script import train_model
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     # execute requested functionality
     if args.train:
         print("Train a model to predict subjective travel experiences")
-        train_lstm()
+        train_model()
 
 
 if __name__ == "__main__":
